@@ -1,0 +1,132 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit VIPA PLC verbinden",
+        "description": "Verbindungsparameter für Ihre VIPA / S7 SPS eingeben.",
+        "data": {
+          "name": "Gerätename",
+          "host": "Host / IP-Adresse",
+          "port": "Port",
+          "rack": "Rack",
+          "slot": "Steckplatz",
+          "poll_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur SPS nicht möglich. Bitte Host, Port, Rack und Steckplatz prüfen.",
+      "unknown": "Unerwarteter Fehler. Details siehe Protokoll."
+    },
+    "abort": {
+      "already_configured": "Diese SPS ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "menu": {
+        "title": "Entitätenverwaltung",
+        "menu_options": {
+          "add_binary_sensor": "Binären Sensor hinzufügen",
+          "add_button": "Schaltfläche hinzufügen",
+          "add_switch": "Schalter hinzufügen",
+          "add_cover": "Rollo / Jalousie hinzufügen",
+          "edit_entity": "Entität bearbeiten",
+          "list_entities": "Entität löschen"
+        }
+      },
+      "add_binary_sensor": {
+        "title": "Binären Sensor hinzufügen",
+        "data": {
+          "entity_name": "Name",
+          "address": "S7-Adresse (z. B. DB2,X0.0)",
+          "device_class": "Geräteklasse (optional)",
+          "invert": "Wert invertieren"
+        }
+      },
+      "add_button": {
+        "title": "Schaltfläche hinzufügen",
+        "data": {
+          "entity_name": "Name",
+          "address": "S7-Adresse (z. B. DB12,X6.0)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "add_switch": {
+        "title": "Schalter hinzufügen",
+        "data": {
+          "entity_name": "Name",
+          "address_on": "S7-Adresse EIN (z. B. DB12,X6.6)",
+          "address_off": "S7-Adresse AUS (z. B. DB12,X6.7)",
+          "address_state": "S7-Adresse Zustand (optional, z. B. DB2,X4.0)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "add_cover": {
+        "title": "Rollo / Jalousie hinzufügen",
+        "data": {
+          "entity_name": "Name",
+          "address_open": "S7-Adresse HOCH (z. B. DB12,X10.3)",
+          "address_close": "S7-Adresse RUNTER (z. B. DB12,X10.4)",
+          "address_stop": "S7-Adresse STOPP (optional, z. B. DB12,X10.5)",
+          "device_class": "Geräteklasse (optional)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "edit_entity": {
+        "title": "Entität zum Bearbeiten auswählen",
+        "data": {
+          "entity_to_edit": "Entität"
+        }
+      },
+      "edit_binary_sensor": {
+        "title": "Binären Sensor bearbeiten",
+        "data": {
+          "entity_name": "Name",
+          "address": "S7-Adresse (z. B. DB2,X0.0)",
+          "device_class": "Geräteklasse (optional)",
+          "invert": "Wert invertieren"
+        }
+      },
+      "edit_button": {
+        "title": "Schaltfläche bearbeiten",
+        "data": {
+          "entity_name": "Name",
+          "address": "S7-Adresse (z. B. DB12,X6.0)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "edit_switch": {
+        "title": "Schalter bearbeiten",
+        "data": {
+          "entity_name": "Name",
+          "address_on": "S7-Adresse EIN (z. B. DB12,X6.6)",
+          "address_off": "S7-Adresse AUS (z. B. DB12,X6.7)",
+          "address_state": "S7-Adresse Zustand (optional, z. B. DB2,X4.0)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "edit_cover": {
+        "title": "Rollo / Jalousie bearbeiten",
+        "data": {
+          "entity_name": "Name",
+          "address_open": "S7-Adresse HOCH",
+          "address_close": "S7-Adresse RUNTER",
+          "address_stop": "S7-Adresse STOPP (optional)",
+          "device_class": "Geräteklasse (optional)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "list_entities": {
+        "title": "Entität löschen",
+        "description": "Konfigurierte Entitäten:\n{entities}\n\nEntität zum Löschen auswählen.",
+        "data": {
+          "entity_to_delete": "Zu löschende Entität"
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Ungültige S7-Adresse. Format: DB<Nummer>,X<Byte>.<Bit> z. B. DB2,X0.0"
+    }
+  }
+}
