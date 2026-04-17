@@ -58,7 +58,7 @@
       }
     },
     "error": {
-      "invalid_address": "Invalid S7 address. Use format DB<number>,X<byte>.<bit>  e.g. DB2,X0.0"
+      "invalid_address": "Invalid S7 address. Use format DB<number>,X<byte>.<bit> e.g. DB2,X0.0"
     }
   }
 }

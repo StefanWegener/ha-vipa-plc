@@ -46,7 +46,7 @@ def parse_address(address: str) -> S7Address:
     if not match:
         raise AddressParseError(
             f"Invalid S7 address '{address}'. "
-            "Expected format: DB<number>,X<byte>.<bit>  e.g. DB2,X0.0"
+            "Expected format: DB<number>,X<byte>.<bit> e.g. DB2,X0.0"
         )
     db_number = int(match.group(1))
     byte_index = int(match.group(2))
