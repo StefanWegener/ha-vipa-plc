@@ -1,0 +1,11 @@
+{
+  "domain": "vipa_plc",
+  "name": "VIPA PLC",
+  "version": "0.1.0",
+  "documentation": "https://github.com/StefanWegener/ha-vipa-plc",
+  "issue_tracker": "https://github.com/StefanWegener/ha-vipa-plc/issues",
+  "requirements": ["python-snap7==1.3"],
+  "codeowners": ["@StefanWegener"],
+  "iot_class": "local_polling",
+  "config_flow": true
+}
