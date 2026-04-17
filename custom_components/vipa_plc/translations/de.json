@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit VIPA PLC verbinden",
+        "description": "Verbindungsparameter für Ihre VIPA / S7 SPS eingeben.",
+        "data": {
+          "name": "Gerätename",
+          "host": "Host / IP-Adresse",
+          "port": "Port",
+          "rack": "Rack",
+          "slot": "Steckplatz",
+          "poll_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur SPS nicht möglich. Bitte Host, Port, Rack und Steckplatz prüfen.",
+      "unknown": "Unerwarteter Fehler. Details siehe Protokoll."
+    },
+    "abort": {
+      "already_configured": "Diese SPS ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "menu": {
+        "title": "Entitätenverwaltung",
+        "menu_options": {
+          "add_binary_sensor": "Binären Sensor hinzufügen",
+          "add_button": "Schaltfläche hinzufügen",
+          "list_entities": "Entitäten anzeigen / löschen"
+        }
+      },
+      "add_binary_sensor": {
+        "title": "Binären Sensor hinzufügen",
+        "data": {
+          "entity_name": "Name",
+          "address": "S7-Adresse (z. B. DB2,X0.0)",
+          "device_class": "Geräteklasse (optional)",
+          "invert": "Wert invertieren"
+        }
+      },
+      "add_button": {
+        "title": "Schaltfläche hinzufügen",
+        "data": {
+          "entity_name": "Name",
+          "address": "S7-Adresse (z. B. DB12,X6.0)",
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+        }
+      },
+      "list_entities": {
+        "title": "Konfigurierte Entitäten",
+        "description": "Konfigurierte Entitäten:\n{entities}\n\nUnten eine Entität zum Löschen auswählen.",
+        "data": {
+          "entity_to_delete": "Zu löschende Entität (leer lassen, um alle zu behalten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Ungültige S7-Adresse. Format: DB<Nummer>,X<Byte>.<Bit> z. B. DB2,X0.0"
+    }
+  }
+}
