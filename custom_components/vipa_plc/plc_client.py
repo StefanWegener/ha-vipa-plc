@@ -31,7 +31,7 @@ class PLCClient:
         self._rack = rack
         self._slot = slot
         self._port = port
-        self._client = snap7.client.Client()
+        self._client: snap7.client.Client | None = None
 
     # ------------------------------------------------------------------
     # Connection management
@@ -51,6 +51,7 @@ class PLCClient:
             self._slot,
         )
         try:
+            self._client = snap7.client.Client()
             self._client.connect(self._host, self._rack, self._slot, self._port)
         except _SNAP7_ERRORS as exc:
             _LOGGER.error(
@@ -73,6 +74,8 @@ class PLCClient:
 
     def disconnect(self) -> None:
         """Disconnect from the PLC."""
+        if self._client is None:
+            return
         try:
             self._client.disconnect()
         except _SNAP7_ERRORS:
@@ -81,6 +84,8 @@ class PLCClient:
 
     def is_connected(self) -> bool:
         """Return True if the client currently has an active connection."""
+        if self._client is None:
+            return False
         try:
             return bool(self._client.get_connected())
         except _SNAP7_ERRORS:
@@ -108,6 +113,8 @@ class PLCClient:
         """
         addr = self._resolve(address)
         _LOGGER.debug("Reading bit %s", addr)
+        if self._client is None:
+            raise PLCCommunicationError(f"Read failed for {addr}: not connected")
         try:
             data = self._client.db_read(addr.db_number, addr.byte_index, 1)
             value = snap7.util.get_bool(data, 0, addr.bit_index)
@@ -129,6 +136,8 @@ class PLCClient:
         """
         addr = self._resolve(address)
         _LOGGER.debug("Writing bit %s = %s", addr, value)
+        if self._client is None:
+            raise PLCCommunicationError(f"Write failed for {addr}: not connected")
         try:
             data = self._client.db_read(addr.db_number, addr.byte_index, 1)
             snap7.util.set_bool(data, 0, addr.bit_index, value)
