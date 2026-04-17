@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -24,7 +25,7 @@ from .const import (
     ENTITY_TYPE_SWITCH,
 )
 from .coordinator import VipaPlcCoordinator
-from .plc_client import PLCClient
+from .plc_client import PLCClient, PLCCommunicationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,9 +106,14 @@ class VipaSwitch(CoordinatorEntity[VipaPlcCoordinator], SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on by pulsing the ON address."""
         _LOGGER.debug("Switch '%s' turn_on – pulsing %s", self._attr_name, self._address_on)
-        await self.hass.async_add_executor_job(
-            self._client.pulse_bool, self._address_on, self._pulse_duration
-        )
+        try:
+            await self.hass.async_add_executor_job(
+                self._client.pulse_bool, self._address_on, self._pulse_duration
+            )
+        except PLCCommunicationError as exc:
+            raise HomeAssistantError(
+                f"Failed to turn on {self._attr_name}: {exc}"
+            ) from exc
         if self._address_state is None:
             self._optimistic_state = True
             self.async_write_ha_state()
@@ -117,9 +123,14 @@ class VipaSwitch(CoordinatorEntity[VipaPlcCoordinator], SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off by pulsing the OFF address."""
         _LOGGER.debug("Switch '%s' turn_off – pulsing %s", self._attr_name, self._address_off)
-        await self.hass.async_add_executor_job(
-            self._client.pulse_bool, self._address_off, self._pulse_duration
-        )
+        try:
+            await self.hass.async_add_executor_job(
+                self._client.pulse_bool, self._address_off, self._pulse_duration
+            )
+        except PLCCommunicationError as exc:
+            raise HomeAssistantError(
+                f"Failed to turn off {self._attr_name}: {exc}"
+            ) from exc
         if self._address_state is None:
             self._optimistic_state = False
             self.async_write_ha_state()

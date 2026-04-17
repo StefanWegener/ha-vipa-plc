@@ -92,16 +92,53 @@ If no state address is provided the switch operates in optimistic mode.
 
 Controls shutters, blinds, or similar devices.
 
-| Field         | Required | Description                                    |
-|---------------|----------|------------------------------------------------|
-| Name          | yes      | Entity display name                            |
-| Address OPEN  | yes      | S7 address to pulse for opening                |
-| Address CLOSE | yes      | S7 address to pulse for closing                |
-| Address STOP  | no       | S7 address to pulse for stopping               |
-| Device class  | no       | HA cover device class (shutter, blind, …)      |
-| Pulse duration| no       | High time in seconds (default: 0.5 s)          |
+| Field              | Required | Description                                                      |
+|--------------------|----------|------------------------------------------------------------------|
+| Name               | yes      | Entity display name                                              |
+| Address OPEN       | yes      | S7 address to pulse for opening                                  |
+| Address CLOSE      | yes      | S7 address to pulse for closing                                  |
+| Address STOP       | no       | S7 address to pulse for stopping                                 |
+| Device class       | no       | HA cover device class (shutter, blind, …)                        |
+| Pulse duration     | no       | High time in seconds (default: 0.5 s)                            |
+| Travel time down   | no       | Seconds for a full close travel (enables position tracking)      |
+| Travel time up     | no       | Seconds for a full open travel (enables position tracking)       |
 
-Cover always operates in optimistic mode (no position feedback from PLC).
+When both travel times are set, the integration calculates the current position
+(0–100) in software and enables **Set Position** (`cover.set_cover_position`).
+The cover moves for the proportional fraction of the travel time and then sends
+a stop pulse automatically. Without travel times the entity operates in
+optimistic mode (open / close / stop only, no position).
+
+## CSV Import
+
+Entities can be bulk-imported via **Options → Import from CSV**.
+Paste semicolon-separated rows (up to 10 columns) directly into the text area.
+Lines starting with `#` and empty lines are ignored.
+
+```
+entity_type;name;address1;address2;address3;device_class;invert;pulse_duration;travel_time_down;travel_time_up
+```
+
+| Column | binary_sensor | button | switch | cover |
+|--------|--------------|--------|--------|-------|
+| 1 entity_type | `binary_sensor` | `button` | `switch` | `cover` |
+| 2 name | display name | display name | display name | display name |
+| 3 address1 | address | address | address_on | address_open |
+| 4 address2 | – | – | address_off | address_close |
+| 5 address3 | – | – | address_state | address_stop |
+| 6 device_class | e.g. `window` | – | – | e.g. `shutter` |
+| 7 invert | `true`/`1` | – | – | – |
+| 8 pulse_duration | – | seconds | seconds | seconds |
+| 9 travel_time_down | – | – | – | seconds (full close) |
+| 10 travel_time_up | – | – | – | seconds (full open) |
+
+Example rows:
+```
+binary_sensor;Window Kitchen;DB2,X0.0;;;window;;
+switch;Light Living Room;DB12,X6.0;DB12,X6.1;DB2,X4.5;;;
+cover;Shutter Living Room;DB12,X10.3;DB12,X10.4;DB12,X10.5;shutter;;0.5;25;28
+cover;Shutter Office;DB12,X11.7;DB12,X12.0;DB12,X12.1;shutter;;0.5;18;19
+```
 
 ## Notes
 

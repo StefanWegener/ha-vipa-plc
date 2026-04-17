@@ -31,6 +31,7 @@
           "add_button": "Add button",
           "add_switch": "Add switch",
           "add_cover": "Add cover (shutter/blind)",
+          "import_csv": "Import from CSV",
           "edit_entity": "Edit entity",
           "list_entities": "Delete entity"
         }
@@ -70,7 +71,9 @@
           "address_close": "S7 address CLOSE (e.g. DB12,X10.4)",
           "address_stop": "S7 address STOP (optional, e.g. DB12,X10.5)",
           "device_class": "Device class (optional)",
-          "pulse_duration_seconds": "Pulse duration (seconds)"
+          "pulse_duration_seconds": "Pulse duration (seconds)",
+          "travel_time_down": "Travel time down (seconds, optional)",
+          "travel_time_up": "Travel time up (seconds, optional)"
         }
       },
       "edit_entity": {
@@ -114,7 +117,9 @@
           "address_close": "S7 address CLOSE",
           "address_stop": "S7 address STOP (optional)",
           "device_class": "Device class (optional)",
-          "pulse_duration_seconds": "Pulse duration (seconds)"
+          "pulse_duration_seconds": "Pulse duration (seconds)",
+          "travel_time_down": "Travel time down (seconds, optional)",
+          "travel_time_up": "Travel time up (seconds, optional)"
         }
       },
       "list_entities": {
@@ -123,10 +128,27 @@
         "data": {
           "entity_to_delete": "Entity to delete"
         }
+      },
+      "import_csv": {
+        "title": "Import entities from CSV",
+        "description": "Paste the CSV content below. Lines starting with # are treated as comments.\n\nFormat (semicolon-separated):\n  entity_type ; name ; address1 ; address2 ; address3 ; device_class ; invert ; pulse_duration\n\nColumn mapping:\n  binary_sensor : address1=address\n  button        : address1=address\n  switch        : address1=address_on, address2=address_off, address3=address_state (optional)\n  cover         : address1=address_open, address2=address_close, address3=address_stop (optional)\n\nErrors from the last attempt:\n{errors}",
+        "data": {
+          "csv_content": "CSV content"
+        }
+      },
+      "import_preview": {
+        "title": "Import preview",
+        "description": "{summary}\n\nErrors / warnings:\n{errors}\n\nSelect entities to SKIP (leave empty to import all):",
+        "data": {
+          "skip_entities": "Skip these entities"
+        }
       }
     },
     "error": {
-      "invalid_address": "Invalid S7 address. Use format DB<number>,X<byte>.<bit> e.g. DB2,X0.0"
+      "invalid_address": "Invalid S7 address. Use format DB<number>,X<byte>.<bit> e.g. DB2,X0.0",
+      "duplicate_name": "An entity with this name already exists.",
+      "csv_empty": "The CSV content is empty or contains only comments.",
+      "csv_no_valid_entities": "No valid entities could be parsed. See errors below."
     }
   }
 }

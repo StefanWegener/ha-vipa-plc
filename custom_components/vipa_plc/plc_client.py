@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,8 +39,22 @@ import snap7.util
 
 from .address import S7Address, parse_address
 
-# snap7 raises RuntimeError on communication/connection failures.
-_SNAP7_ERRORS = (RuntimeError, OSError)
+# snap7 raises RuntimeError or OSError on most failures.
+# Newer versions of snap7 (≥ 1.4) introduce S7ConnectionError (a subclass of
+# RuntimeError) specifically for broken TCP sessions (invalid TPKT/COTP frames).
+# We import it defensively so the integration works with older snap7 builds too.
+try:
+    from snap7.error import S7ConnectionError as _Snap7ConnectionError  # type: ignore[attr-defined]
+except (ImportError, AttributeError):
+    try:
+        from snap7.exceptions import Snap7Exception as _Snap7ConnectionError  # type: ignore[assignment]
+    except (ImportError, AttributeError):
+        _Snap7ConnectionError = RuntimeError  # type: ignore[assignment,misc]
+
+Snap7ConnectionError = _Snap7ConnectionError
+
+# Tuple of all snap7 exception types treated as communication failures
+_SNAP7_ERRORS = (RuntimeError, OSError, Snap7ConnectionError)
 
 
 class PLCConnectionError(Exception):
@@ -59,6 +74,7 @@ class PLCClient:
         self._slot = slot
         self._port = port
         self._client: snap7.client.Client | None = None
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Connection management
@@ -126,6 +142,16 @@ class PLCClient:
         """Parse and return an S7Address, raising PLCCommunicationError on failure."""
         return parse_address(address)
 
+    def _mark_disconnected(self) -> None:
+        """Tear down the snap7 client so is_connected() returns False on next check."""
+        if self._client is not None:
+            try:
+                self._client.disconnect()
+            except Exception:  # noqa: BLE001
+                pass
+            self._client = None
+        _LOGGER.debug("PLC connection marked as disconnected after communication error")
+
     def read_bool(self, address: str) -> bool:
         """Read a single boolean bit from the PLC.
 
@@ -140,14 +166,19 @@ class PLCClient:
         """
         addr = self._resolve(address)
         _LOGGER.debug("Reading bit %s", addr)
-        if self._client is None:
-            raise PLCCommunicationError(f"Read failed for {addr}: not connected")
-        try:
-            data = self._client.db_read(addr.db_number, addr.byte_index, 1)
-            value = snap7.util.get_bool(data, 0, addr.bit_index)
-        except _SNAP7_ERRORS as exc:
-            _LOGGER.error("Read error for %s: %s", addr, exc)
-            raise PLCCommunicationError(f"Read failed for {addr}: {exc}") from exc
+        with self._lock:
+            if self._client is None:
+                raise PLCCommunicationError(f"Read failed for {addr}: not connected")
+            try:
+                data = self._client.db_read(addr.db_number, addr.byte_index, 1)
+                value = snap7.util.get_bool(data, 0, addr.bit_index)
+            except Snap7ConnectionError as exc:
+                _LOGGER.warning("Connection lost during read of %s: %s – marking disconnected", addr, exc)
+                self._mark_disconnected()
+                raise PLCCommunicationError(f"Read failed for {addr}: {exc}") from exc
+            except _SNAP7_ERRORS as exc:
+                _LOGGER.error("Read error for %s: %s", addr, exc)
+                raise PLCCommunicationError(f"Read failed for {addr}: {exc}") from exc
         _LOGGER.debug("Read %s = %s", addr, value)
         return bool(value)
 
@@ -163,29 +194,46 @@ class PLCClient:
         """
         addr = self._resolve(address)
         _LOGGER.debug("Writing bit %s = %s", addr, value)
-        if self._client is None:
-            raise PLCCommunicationError(f"Write failed for {addr}: not connected")
-        try:
-            data = self._client.db_read(addr.db_number, addr.byte_index, 1)
-            snap7.util.set_bool(data, 0, addr.bit_index, value)
-            self._client.db_write(addr.db_number, addr.byte_index, data)
-        except _SNAP7_ERRORS as exc:
-            _LOGGER.error("Write error for %s: %s", addr, exc)
-            raise PLCCommunicationError(f"Write failed for {addr}: {exc}") from exc
+        with self._lock:
+            if self._client is None:
+                raise PLCCommunicationError(f"Write failed for {addr}: not connected")
+            try:
+                data = self._client.db_read(addr.db_number, addr.byte_index, 1)
+                snap7.util.set_bool(data, 0, addr.bit_index, value)
+                self._client.db_write(addr.db_number, addr.byte_index, data)
+            except Snap7ConnectionError as exc:
+                _LOGGER.warning("Connection lost during write of %s: %s – marking disconnected", addr, exc)
+                self._mark_disconnected()
+                raise PLCCommunicationError(f"Write failed for {addr}: {exc}") from exc
+            except _SNAP7_ERRORS as exc:
+                _LOGGER.error("Write error for %s: %s", addr, exc)
+                raise PLCCommunicationError(f"Write failed for {addr}: {exc}") from exc
         _LOGGER.debug("Wrote %s = %s", addr, value)
 
     def pulse_bool(self, address: str, duration: float) -> None:
         """Write True, wait *duration* seconds, then write False.
 
+        The reset to False is performed in a ``finally`` block so the PLC bit
+        is always cleared, even when an exception occurs during the sleep.
+
         Args:
             address: S7 address string.
-            duration: How long (seconds) to hold the bit high.
+            duration: How long (seconds) to hold the bit high (max 10.0).
 
         Raises:
             PLCCommunicationError: On communication failure.
         """
+        duration = min(duration, 10.0)  # safety cap
         _LOGGER.debug("Pulsing bit %s for %.2f s", address, duration)
         self.write_bool(address, True)
-        time.sleep(duration)
-        self.write_bool(address, False)
+        try:
+            time.sleep(duration)
+        finally:
+            try:
+                self.write_bool(address, False)
+            except PLCCommunicationError:
+                _LOGGER.error(
+                    "Failed to reset bit %s after pulse – bit may be stuck HIGH!", address
+                )
+                raise
         _LOGGER.debug("Pulse complete for %s", address)

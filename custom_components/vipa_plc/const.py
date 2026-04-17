@@ -37,6 +37,8 @@ CONF_ADDRESS_STOP = "address_stop"
 CONF_DEVICE_CLASS = "device_class"
 CONF_INVERT = "invert"
 CONF_PULSE_DURATION = "pulse_duration_seconds"
+CONF_TRAVEL_TIME_DOWN = "travel_time_down"
+CONF_TRAVEL_TIME_UP = "travel_time_up"
 
 # Defaults for entities
 DEFAULT_PULSE_DURATION = 0.5

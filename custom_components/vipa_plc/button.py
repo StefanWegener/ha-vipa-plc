@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -20,7 +21,7 @@ from .const import (
     DOMAIN,
     ENTITY_TYPE_BUTTON,
 )
-from .plc_client import PLCClient
+from .plc_client import PLCClient, PLCCommunicationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,6 +82,11 @@ class VipaButton(ButtonEntity):
             self._address,
             self._pulse_duration,
         )
-        await self.hass.async_add_executor_job(
-            self._client.pulse_bool, self._address, self._pulse_duration
-        )
+        try:
+            await self.hass.async_add_executor_job(
+                self._client.pulse_bool, self._address, self._pulse_duration
+            )
+        except PLCCommunicationError as exc:
+            raise HomeAssistantError(
+                f"Failed to pulse {self._attr_name}: {exc}"
+            ) from exc

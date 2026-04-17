@@ -10,8 +10,14 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .address import AddressParseError, parse_address
+from .csv_import import CsvImportResult, merge_entities, parse_csv
 from .const import (
     CONF_ADDRESS,
     CONF_ADDRESS_CLOSE,
@@ -31,6 +37,8 @@ from .const import (
     CONF_PULSE_DURATION,
     CONF_RACK,
     CONF_SLOT,
+    CONF_TRAVEL_TIME_DOWN,
+    CONF_TRAVEL_TIME_UP,
     DEFAULT_INVERT,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_PORT,
@@ -46,6 +54,10 @@ from .const import (
 from .plc_client import PLCClient, PLCConnectionError
 
 _LOGGER = logging.getLogger(__name__)
+
+# Reusable validators
+_PULSE_DURATION_VALIDATOR = vol.All(vol.Coerce(float), vol.Range(min=0.1, max=10.0))
+_TRAVEL_TIME_VALIDATOR = vol.All(vol.Coerce(float), vol.Range(min=0.1, max=600.0))
 
 # Binary sensor device classes supported in the options UI
 BINARY_SENSOR_DEVICE_CLASSES = [
@@ -99,6 +111,8 @@ _STEP_ADD_BINARY_SENSOR = "add_binary_sensor"
 _STEP_ADD_BUTTON = "add_button"
 _STEP_ADD_SWITCH = "add_switch"
 _STEP_ADD_COVER = "add_cover"
+_STEP_IMPORT_CSV = "import_csv"
+_STEP_IMPORT_PREVIEW = "import_preview"
 _STEP_LIST_ENTITIES = "list_entities"
 _STEP_EDIT_ENTITY = "edit_entity"
 _STEP_EDIT_BINARY_SENSOR = "edit_binary_sensor"
@@ -146,13 +160,19 @@ class VipaPlcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required("name", default="VIPA PLC"): str,
-                vol.Required(CONF_HOST): str,
-                vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.Coerce(int),
-                vol.Required(CONF_RACK, default=DEFAULT_RACK): vol.Coerce(int),
-                vol.Required(CONF_SLOT, default=DEFAULT_SLOT): vol.Coerce(int),
+                vol.Required(CONF_HOST): vol.All(str, vol.Length(min=1)),
+                vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=65535)
+                ),
+                vol.Required(CONF_RACK, default=DEFAULT_RACK): vol.All(
+                    vol.Coerce(int), vol.Range(min=0, max=7)
+                ),
+                vol.Required(CONF_SLOT, default=DEFAULT_SLOT): vol.All(
+                    vol.Coerce(int), vol.Range(min=0, max=31)
+                ),
                 vol.Required(
                     CONF_POLL_INTERVAL, default=DEFAULT_POLL_INTERVAL
-                ): vol.Coerce(int),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3600)),
             }
         )
 
@@ -190,6 +210,12 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
             config_entry.options.get(CONF_ENTITIES, [])
         )
         self._selected_entity_id: str | None = None
+        # State for the CSV import flow
+        self._import_result: CsvImportResult | None = None
+
+    def _name_exists(self, name: str) -> bool:
+        """Check if an entity with this name already exists."""
+        return any(e[CONF_ENTITY_NAME] == name for e in self._entities)
 
     # ------------------------------------------------------------------
     # Main menu
@@ -212,6 +238,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 _STEP_ADD_BUTTON,
                 _STEP_ADD_SWITCH,
                 _STEP_ADD_COVER,
+                _STEP_IMPORT_CSV,
                 _STEP_EDIT_ENTITY,
                 _STEP_LIST_ENTITIES,
             ],
@@ -232,14 +259,18 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 parse_address(user_input[CONF_ADDRESS])
             except AddressParseError:
                 errors[CONF_ADDRESS] = "invalid_address"
-            else:
+
+            if self._name_exists(user_input[CONF_ENTITY_NAME]):
+                errors[CONF_ENTITY_NAME] = "duplicate_name"
+
+            if not errors:
                 entity: dict[str, Any] = {
                     "id": str(uuid.uuid4()),
                     CONF_ENTITY_TYPE: ENTITY_TYPE_BINARY_SENSOR,
                     CONF_ENTITY_NAME: user_input[CONF_ENTITY_NAME],
                     CONF_ADDRESS: user_input[CONF_ADDRESS],
                     CONF_DEVICE_CLASS: user_input.get(CONF_DEVICE_CLASS) or None,
-                    CONF_INVERT: user_input.get(CONF_INVERT, DEFAULT_INVERT),
+                    CONF_INVERT: bool(user_input.get(CONF_INVERT, DEFAULT_INVERT)),
                 }
                 self._entities.append(entity)
                 return self._save_and_exit()
@@ -276,7 +307,11 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 parse_address(user_input[CONF_ADDRESS])
             except AddressParseError:
                 errors[CONF_ADDRESS] = "invalid_address"
-            else:
+
+            if self._name_exists(user_input[CONF_ENTITY_NAME]):
+                errors[CONF_ENTITY_NAME] = "duplicate_name"
+
+            if not errors:
                 entity: dict[str, Any] = {
                     "id": str(uuid.uuid4()),
                     CONF_ENTITY_TYPE: ENTITY_TYPE_BUTTON,
@@ -295,7 +330,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_ADDRESS): str,
                 vol.Optional(
                     CONF_PULSE_DURATION, default=DEFAULT_PULSE_DURATION
-                ): vol.Coerce(float),
+                ): _PULSE_DURATION_VALIDATOR,
             }
         )
 
@@ -338,6 +373,9 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
             else:
                 state_addr = None
 
+            if self._name_exists(user_input[CONF_ENTITY_NAME]):
+                errors[CONF_ENTITY_NAME] = "duplicate_name"
+
             if not errors:
                 entity: dict[str, Any] = {
                     "id": str(uuid.uuid4()),
@@ -361,7 +399,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ADDRESS_STATE, default=""): str,
                 vol.Optional(
                     CONF_PULSE_DURATION, default=DEFAULT_PULSE_DURATION
-                ): vol.Coerce(float),
+                ): _PULSE_DURATION_VALIDATOR,
             }
         )
 
@@ -397,6 +435,9 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
             else:
                 stop_addr = None
 
+            if self._name_exists(user_input[CONF_ENTITY_NAME]):
+                errors[CONF_ENTITY_NAME] = "duplicate_name"
+
             if not errors:
                 entity: dict[str, Any] = {
                     "id": str(uuid.uuid4()),
@@ -407,6 +448,8 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                     CONF_ADDRESS_STOP: stop_addr,
                     CONF_DEVICE_CLASS: user_input.get(CONF_DEVICE_CLASS) or None,
                     CONF_PULSE_DURATION: user_input.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION),
+                    CONF_TRAVEL_TIME_DOWN: user_input.get(CONF_TRAVEL_TIME_DOWN) or None,
+                    CONF_TRAVEL_TIME_UP: user_input.get(CONF_TRAVEL_TIME_UP) or None,
                 }
                 self._entities.append(entity)
                 return self._save_and_exit()
@@ -418,7 +461,9 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_ADDRESS_CLOSE): str,
                 vol.Optional(CONF_ADDRESS_STOP): str,
                 vol.Optional(CONF_DEVICE_CLASS): vol.In(COVER_DEVICE_CLASSES),
-                vol.Optional(CONF_PULSE_DURATION): vol.Coerce(float),
+                vol.Optional(CONF_PULSE_DURATION): _PULSE_DURATION_VALIDATOR,
+                vol.Optional(CONF_TRAVEL_TIME_DOWN): _TRAVEL_TIME_VALIDATOR,
+                vol.Optional(CONF_TRAVEL_TIME_UP): _TRAVEL_TIME_VALIDATOR,
             }
         )
         return self.async_show_form(
@@ -427,6 +472,88 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 schema, {CONF_PULSE_DURATION: DEFAULT_PULSE_DURATION}
             ),
             errors=errors,
+        )
+
+    # ------------------------------------------------------------------
+    # Import from CSV — step 1: paste CSV text
+    # ------------------------------------------------------------------
+
+    async def async_step_import_csv(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show a text area for the user to paste CSV content."""
+        errors: dict[str, str] = {}
+        error_details = ""
+
+        if user_input is not None:
+            csv_text = user_input.get("csv_content", "")
+            result = parse_csv(csv_text)
+
+            if not result.entities and not result.errors:
+                errors["csv_content"] = "csv_empty"
+            elif not result.entities:
+                # Only errors, no valid entities at all
+                errors["csv_content"] = "csv_no_valid_entities"
+                error_details = "\n".join(result.errors)
+            else:
+                # At least some valid entities — proceed to preview even if there are errors
+                self._import_result = result
+                return await self.async_step_import_preview()
+
+        schema = vol.Schema(
+            {
+                vol.Required("csv_content"): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT, multiline=True)
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id=_STEP_IMPORT_CSV,
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"errors": error_details},
+        )
+
+    # ------------------------------------------------------------------
+    # Import from CSV — step 2: preview & confirm
+    # ------------------------------------------------------------------
+
+    async def async_step_import_preview(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show a preview of what will be imported; allow skipping entries."""
+        result = self._import_result
+        if result is None:
+            return await self.async_step_import_csv()
+
+        # Build {id: display_label} map for the multi-select widget
+        entity_choices: dict[str, str] = {}
+        for e in result.entities:
+            etype = e.get(CONF_ENTITY_TYPE, "?")
+            name = e.get(CONF_ENTITY_NAME, "?")
+            entity_choices[e["id"]] = f"[{etype}] {name}"
+
+        if user_input is not None:
+            skip_ids: set[str] = set(user_input.get("skip_entities", []))
+            self._entities = merge_entities(self._entities, result.entities, skip_ids)
+            self._import_result = None
+            return self._save_and_exit()
+
+        error_text = "\n".join(result.errors) if result.errors else ""
+        schema = vol.Schema(
+            {
+                vol.Optional("skip_entities", default=[]): cv.multi_select(
+                    entity_choices
+                ),
+            }
+        )
+        return self.async_show_form(
+            step_id=_STEP_IMPORT_PREVIEW,
+            data_schema=schema,
+            description_placeholders={
+                "summary": result.summary,
+                "errors": error_text,
+            },
         )
 
     def _entity_label(self, entity: dict[str, Any]) -> str:
@@ -499,7 +626,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                         CONF_ENTITY_NAME: user_input[CONF_ENTITY_NAME],
                         CONF_ADDRESS: user_input[CONF_ADDRESS],
                         CONF_DEVICE_CLASS: user_input.get(CONF_DEVICE_CLASS) or None,
-                        CONF_INVERT: user_input.get(CONF_INVERT, DEFAULT_INVERT),
+                        CONF_INVERT: bool(user_input.get(CONF_INVERT, DEFAULT_INVERT)),
                     }
                 )
                 return self._save_and_exit()
@@ -508,8 +635,8 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Required(CONF_ENTITY_NAME): str,
                 vol.Required(CONF_ADDRESS): str,
-                vol.Optional(CONF_DEVICE_CLASS): vol.In(BINARY_SENSOR_DEVICE_CLASSES),
-                vol.Optional(CONF_INVERT): bool,
+                vol.Optional(CONF_DEVICE_CLASS, default=""): vol.In(BINARY_SENSOR_DEVICE_CLASSES),
+                vol.Optional(CONF_INVERT, default=DEFAULT_INVERT): bool,
             }
         )
         return self.async_show_form(
@@ -558,7 +685,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Required(CONF_ENTITY_NAME): str,
                 vol.Required(CONF_ADDRESS): str,
-                vol.Optional(CONF_PULSE_DURATION): vol.Coerce(float),
+                vol.Optional(CONF_PULSE_DURATION): _PULSE_DURATION_VALIDATOR,
             }
         )
         return self.async_show_form(
@@ -625,7 +752,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_ADDRESS_ON): str,
                 vol.Required(CONF_ADDRESS_OFF): str,
                 vol.Optional(CONF_ADDRESS_STATE): str,
-                vol.Optional(CONF_PULSE_DURATION): vol.Coerce(float),
+                vol.Optional(CONF_PULSE_DURATION): _PULSE_DURATION_VALIDATOR,
             }
         )
         return self.async_show_form(
@@ -712,6 +839,8 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                         CONF_ADDRESS_STOP: stop_addr,
                         CONF_DEVICE_CLASS: user_input.get(CONF_DEVICE_CLASS) or None,
                         CONF_PULSE_DURATION: user_input.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION),
+                        CONF_TRAVEL_TIME_DOWN: user_input.get(CONF_TRAVEL_TIME_DOWN) or None,
+                        CONF_TRAVEL_TIME_UP: user_input.get(CONF_TRAVEL_TIME_UP) or None,
                     }
                 )
                 return self._save_and_exit()
@@ -723,7 +852,9 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_ADDRESS_CLOSE): str,
                 vol.Optional(CONF_ADDRESS_STOP): str,
                 vol.Optional(CONF_DEVICE_CLASS): vol.In(COVER_DEVICE_CLASSES),
-                vol.Optional(CONF_PULSE_DURATION): vol.Coerce(float),
+                vol.Optional(CONF_PULSE_DURATION): _PULSE_DURATION_VALIDATOR,
+                vol.Optional(CONF_TRAVEL_TIME_DOWN): _TRAVEL_TIME_VALIDATOR,
+                vol.Optional(CONF_TRAVEL_TIME_UP): _TRAVEL_TIME_VALIDATOR,
             }
         )
         return self.async_show_form(
@@ -737,6 +868,8 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                     CONF_ADDRESS_STOP: entity.get(CONF_ADDRESS_STOP) or "",
                     CONF_DEVICE_CLASS: entity.get(CONF_DEVICE_CLASS) or "",
                     CONF_PULSE_DURATION: entity.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION),
+                    CONF_TRAVEL_TIME_DOWN: entity.get(CONF_TRAVEL_TIME_DOWN),
+                    CONF_TRAVEL_TIME_UP: entity.get(CONF_TRAVEL_TIME_UP),
                 },
             ),
             errors=errors,

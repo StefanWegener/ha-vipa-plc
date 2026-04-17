@@ -1,0 +1,115 @@
+# VIPA PLC – CSV Import Example
+# ============================================================
+# Format: entity_type;name;address1;address2;address3;device_class;invert;pulse_duration
+#
+# Columns:
+#   entity_type    : binary_sensor | button | switch | cover
+#   name           : Display name shown in Home Assistant
+#   address1       : binary_sensor/button → address
+#                    switch               → address_on
+#                    cover                → address_open
+#   address2       : switch → address_off
+#                    cover  → address_close
+#                    (leave empty for binary_sensor and button)
+#   address3       : switch → address_state  (optional, for feedback from PLC)
+#                    cover  → address_stop   (optional)
+#                    (leave empty for binary_sensor and button)
+#   device_class   : binary_sensor: battery, door, garage_door, gas, heat, light,
+#                                   lock, moisture, motion, moving, occupancy,
+#                                   opening, plug, power, presence, problem,
+#                                   running, safety, smoke, sound, tamper,
+#                                   update, vibration, window
+#                    cover:         awning, blind, curtain, damper, door,
+#                                   garage, gate, shade, shutter, window
+#                    (leave empty for button and switch)
+#   invert         : true | false  — only for binary_sensor (default: false)
+#   pulse_duration : Pulse length in seconds, e.g. 0.5 — button, switch, cover
+#                    (leave empty to use the default of 0.5 s)
+#
+# S7 address format: DB<number>,X<byte>.<bit>   e.g.  DB2,X0.0
+#
+# Lines starting with # are ignored. Empty lines are ignored.
+# Trailing semicolons and missing columns are padded automatically.
+# ============================================================
+
+
+# ============================================================
+# BINARY SENSORS
+# ============================================================
+
+# Window contact — basic, no options needed
+binary_sensor;Window Room A;DB2,X0.0;;;window;;
+
+# Window contact — inverted (sensor reports 1 when closed, 0 when open)
+binary_sensor;Window Room B (inverted);DB2,X0.1;;;window;true;
+
+# Door contact
+binary_sensor;Front Door;DB2,X1.1;;;door;;
+
+# Garage door contact
+binary_sensor;Garage Door;DB2,X1.2;;;garage_door;;
+
+# Motion detector
+binary_sensor;Motion Hallway;DB2,X15.2;;;motion;;
+
+# Alarm / safety status
+binary_sensor;Alarm Active;DB2,X24.0;;;safety;;
+binary_sensor;Alarm Triggered;DB2,X24.1;;;safety;;
+
+# Doorbell impulse (sound class)
+binary_sensor;Doorbell Impulse;DB2,X58.1;;;sound;;
+
+# Generic binary sensor without device class
+binary_sensor;Custom Sensor 1;DB2,X5.3;;;;
+
+
+# ============================================================
+# BUTTONS  (single write pulse, write-only)
+# ============================================================
+
+# Standard button with default pulse duration (0.5 s)
+button;All Lights Off;DB12,X10.2;;;;;
+
+# Button with custom pulse duration (2 seconds)
+button;Gate Open;DB12,X15.1;;;;;2.0
+
+# Button that triggers a scene or group command
+button;All Shutters Up;DB12,X13.6;;;;;
+
+
+# ============================================================
+# SWITCHES  (dual-pulse: ON address + OFF address)
+# ============================================================
+
+# Switch with state feedback from PLC (recommended)
+# address1 = ON impulse, address2 = OFF impulse, address3 = state readback bit
+switch;Light Living Room;DB12,X6.0;DB12,X6.1;DB2,X4.5;;
+
+# Switch without state feedback (optimistic mode — HA tracks state internally)
+switch;Light Garage;DB12,X14.5;DB12,X14.6;;;
+
+# Switch with custom pulse duration and state feedback
+switch;Light Outdoor;DB12,X8.4;DB12,X8.5;DB2,X5.0;;;1.0
+
+
+# ============================================================
+# COVERS  (shutters, blinds, awnings, garage doors, gates)
+# ============================================================
+
+# Shutter with stop — address1=open, address2=close, address3=stop
+cover;Shutter Room A;DB12,X10.3;DB12,X10.4;DB12,X10.5;shutter;;
+
+# Shutter without stop command
+cover;Shutter Room B;DB12,X10.6;DB12,X10.7;;shutter;;
+
+# Blind (different device class)
+cover;Blind Office;DB12,X11.1;DB12,X11.2;DB12,X11.3;blind;;
+
+# Awning on terrace
+cover;Awning Terrace;DB12,X8.2;DB12,X8.3;;awning;;
+
+# Garage door (gate device class)
+cover;Garage Gate 1;DB12,X14.7;DB12,X15.0;;gate;;
+
+# Cover with custom pulse duration
+cover;Shutter Room C;DB12,X12.2;DB12,X12.3;DB12,X12.4;shutter;;1.5

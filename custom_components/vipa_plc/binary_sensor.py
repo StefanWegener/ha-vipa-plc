@@ -61,7 +61,6 @@ class VipaBinarySensor(CoordinatorEntity[VipaPlcCoordinator], BinarySensorEntity
         self._entry = entry
         self._cfg = cfg
         self._address: str = cfg[CONF_ADDRESS]
-        self._invert: bool = cfg.get(CONF_INVERT, DEFAULT_INVERT)
 
         device_class_str: str | None = cfg.get(CONF_DEVICE_CLASS)
         self._attr_device_class: BinarySensorDeviceClass | None = (
@@ -93,4 +92,5 @@ class VipaBinarySensor(CoordinatorEntity[VipaPlcCoordinator], BinarySensorEntity
         value = self.coordinator.data.get(self._address)
         if value is None:
             return None
-        return (not value) if self._invert else value
+        invert: bool = self._cfg.get(CONF_INVERT, DEFAULT_INVERT)
+        return (not value) if invert else value

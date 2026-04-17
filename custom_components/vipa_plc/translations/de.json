@@ -31,6 +31,7 @@
           "add_button": "Schaltfläche hinzufügen",
           "add_switch": "Schalter hinzufügen",
           "add_cover": "Rollo / Jalousie hinzufügen",
+          "import_csv": "Aus CSV importieren",
           "edit_entity": "Entität bearbeiten",
           "list_entities": "Entität löschen"
         }
@@ -70,7 +71,9 @@
           "address_close": "S7-Adresse RUNTER (z. B. DB12,X10.4)",
           "address_stop": "S7-Adresse STOPP (optional, z. B. DB12,X10.5)",
           "device_class": "Geräteklasse (optional)",
-          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)",
+          "travel_time_down": "Fahrzeit runter (Sekunden, optional)",
+          "travel_time_up": "Fahrzeit hoch (Sekunden, optional)"
         }
       },
       "edit_entity": {
@@ -114,7 +117,9 @@
           "address_close": "S7-Adresse RUNTER",
           "address_stop": "S7-Adresse STOPP (optional)",
           "device_class": "Geräteklasse (optional)",
-          "pulse_duration_seconds": "Impulsdauer (Sekunden)"
+          "pulse_duration_seconds": "Impulsdauer (Sekunden)",
+          "travel_time_down": "Fahrzeit runter (Sekunden, optional)",
+          "travel_time_up": "Fahrzeit hoch (Sekunden, optional)"
         }
       },
       "list_entities": {
@@ -123,10 +128,27 @@
         "data": {
           "entity_to_delete": "Zu löschende Entität"
         }
+      },
+      "import_csv": {
+        "title": "Entitäten aus CSV importieren",
+        "description": "CSV-Inhalt unten einfügen. Zeilen die mit # beginnen werden als Kommentare behandelt.\n\nFormat (semikolon-getrennt):\n  entity_type ; name ; address1 ; address2 ; address3 ; device_class ; invert ; pulse_duration\n\nSpalten-Zuordnung:\n  binary_sensor : address1=Adresse\n  button        : address1=Adresse\n  switch        : address1=address_on, address2=address_off, address3=address_state (optional)\n  cover         : address1=address_open, address2=address_close, address3=address_stop (optional)\n\nFehler des letzten Versuchs:\n{errors}",
+        "data": {
+          "csv_content": "CSV-Inhalt"
+        }
+      },
+      "import_preview": {
+        "title": "Import-Vorschau",
+        "description": "{summary}\n\nFehler / Warnungen:\n{errors}\n\nEntitäten zum ÜBERSPRINGEN auswählen (leer lassen = alle importieren):",
+        "data": {
+          "skip_entities": "Diese Entitäten überspringen"
+        }
       }
     },
     "error": {
-      "invalid_address": "Ungültige S7-Adresse. Format: DB<Nummer>,X<Byte>.<Bit> z. B. DB2,X0.0"
+      "invalid_address": "Ungültige S7-Adresse. Format: DB<Nummer>,X<Byte>.<Bit> z. B. DB2,X0.0",
+      "duplicate_name": "Eine Entität mit diesem Namen existiert bereits.",
+      "csv_empty": "Der CSV-Inhalt ist leer oder enthält nur Kommentare.",
+      "csv_no_valid_entities": "Es konnten keine gültigen Entitäten geparst werden. Fehler siehe unten."
     }
   }
 }

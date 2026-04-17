@@ -33,10 +33,6 @@ class VipaPlcCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=poll_interval),
         )
 
-    def update_entity_configs(self, entity_configs: list[dict[str, Any]]) -> None:
-        """Update the list of entity configs (called on options update)."""
-        self._entity_configs = entity_configs
-
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch binary sensor and switch states from the PLC."""
         data: dict[str, Any] = {}
@@ -69,5 +65,12 @@ class VipaPlcCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except PLCCommunicationError as exc:
                 _LOGGER.warning("Failed to read %s: %s", address, exc)
                 data[address] = None
+                # If the client marked itself disconnected, abort remaining reads
+                # and let the next coordinator cycle reconnect.
+                if not self._client.is_connected():
+                    _LOGGER.warning(
+                        "PLC connection lost during poll – skipping remaining addresses"
+                    )
+                    raise UpdateFailed(f"PLC connection lost: {exc}") from exc
 
         return data
