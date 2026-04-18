@@ -70,22 +70,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    entry.add_update_listener(_async_update_listener)
 
     return True
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options updates (entity list changed)."""
-    _LOGGER.debug("Options updated for entry %s – reloading", entry.entry_id)
-    # Disconnect the PLC client before reloading to avoid connection conflicts
-    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
-    client: PLCClient | None = entry_data.get("client")
-    if client is not None:
-        try:
-            await hass.async_add_executor_job(client.disconnect)
-        except Exception:  # noqa: BLE001
-            pass
+    _LOGGER.debug("Options updated for entry %s – reloading integration", entry.entry_id)
     await hass.config_entries.async_reload(entry.entry_id)
 
 
