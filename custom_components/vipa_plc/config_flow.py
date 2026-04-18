@@ -7,6 +7,7 @@ import uuid
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import OptionsFlowWithReload
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
@@ -201,13 +202,13 @@ class VipaPlcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> "VipaPlcOptionsFlow":
         """Return the options flow handler."""
-        return VipaPlcOptionsFlow(config_entry)
+        return VipaPlcOptionsFlow()
 
 
-class VipaPlcOptionsFlow(config_entries.OptionsFlow):
+class VipaPlcOptionsFlow(OptionsFlowWithReload):
     """Handle options (entity management) for an existing PLC config entry."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self) -> None:
         self._entities: list[dict[str, Any]] = []
         self._selected_entity_id: str | None = None
         # State for the CSV import flow
