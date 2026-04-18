@@ -72,6 +72,7 @@
           "address_stop": "S7 address STOP (optional, e.g. DB12,X10.5)",
           "device_class": "Device class (optional)",
           "pulse_duration_seconds": "Pulse duration (seconds)",
+          "hold_mode": "Hold mode (keep bit set during travel instead of pulse)",
           "travel_time_down": "Travel time down (seconds, optional)",
           "travel_time_up": "Travel time up (seconds, optional)"
         }
@@ -118,6 +119,7 @@
           "address_stop": "S7 address STOP (optional)",
           "device_class": "Device class (optional)",
           "pulse_duration_seconds": "Pulse duration (seconds)",
+          "hold_mode": "Hold mode (keep bit set during travel instead of pulse)",
           "travel_time_down": "Travel time down (seconds, optional)",
           "travel_time_up": "Travel time up (seconds, optional)"
         }

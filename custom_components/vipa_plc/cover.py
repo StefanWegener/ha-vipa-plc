@@ -24,9 +24,11 @@ from .const import (
     CONF_ENTITIES,
     CONF_ENTITY_NAME,
     CONF_ENTITY_TYPE,
+    CONF_HOLD_MODE,
     CONF_PULSE_DURATION,
     CONF_TRAVEL_TIME_DOWN,
     CONF_TRAVEL_TIME_UP,
+    DEFAULT_HOLD_MODE,
     DEFAULT_PULSE_DURATION,
     DOMAIN,
     ENTITY_TYPE_COVER,
@@ -75,6 +77,7 @@ class VipaCover(CoverEntity):
         self._address_close: str = cfg[CONF_ADDRESS_CLOSE]
         self._address_stop: str | None = cfg.get(CONF_ADDRESS_STOP) or None
         self._pulse_duration: float = cfg.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION)
+        self._hold_mode: bool = cfg.get(CONF_HOLD_MODE, DEFAULT_HOLD_MODE)
 
         self._travel_time_down: float | None = cfg.get(CONF_TRAVEL_TIME_DOWN) or None
         self._travel_time_up: float | None = cfg.get(CONF_TRAVEL_TIME_UP) or None
@@ -261,8 +264,21 @@ class VipaCover(CoverEntity):
                         )
                     self.async_write_ha_state()
 
-            # Send stop pulse — catch communication errors so the task does not crash
-            if self._address_stop:
+            # Send stop when travel complete
+            if self._hold_mode:
+                try:
+                    await self.hass.async_add_executor_job(
+                        self._client.write_bool, self._address_open, False
+                    )
+                    await self.hass.async_add_executor_job(
+                        self._client.write_bool, self._address_close, False
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "Cover '%s': stop write failed after travel: %s",
+                        self._attr_name, exc,
+                    )
+            elif self._address_stop:
                 try:
                     await self.hass.async_add_executor_job(
                         self._client.pulse_bool, self._address_stop, self._pulse_duration
@@ -296,17 +312,83 @@ class VipaCover(CoverEntity):
     # Commands
     # ------------------------------------------------------------------
 
+    async def _async_cancel_travel(self) -> None:
+        """Cancel any running travel task, snapshot position, and release PLC bits in hold mode."""
+        self._cancel_travel()
+        if self._hold_mode:
+            try:
+                await self.hass.async_add_executor_job(
+                    self._client.write_bool, self._address_open, False
+                )
+                await self.hass.async_add_executor_job(
+                    self._client.write_bool, self._address_close, False
+                )
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.warning("Cover '%s': failed to release PLC bits on cancel: %s", self._attr_name, exc)
+
+    async def _start_movement(self, address: str) -> bool:
+        """Start cover movement: pulse or hold depending on mode.
+
+        In hold mode, ensures the opposite direction is off first, then sets
+        the given address to True (held until stop).
+        In pulse mode, sends a short pulse.
+
+        Returns True on success, False on failure.
+        """
+        if self._hold_mode:
+            try:
+                # Ensure opposite direction is off
+                opposite = self._address_close if address == self._address_open else self._address_open
+                await self.hass.async_add_executor_job(
+                    self._client.write_bool, opposite, False
+                )
+                await self.hass.async_add_executor_job(
+                    self._client.write_bool, address, True
+                )
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error("Cover '%s': hold write failed: %s", self._attr_name, exc)
+                return False
+        else:
+            try:
+                await self.hass.async_add_executor_job(
+                    self._client.pulse_bool, address, self._pulse_duration
+                )
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error("Cover '%s': pulse failed: %s", self._attr_name, exc)
+                return False
+        return True
+
+    async def _stop_movement(self) -> None:
+        """Stop cover movement.
+
+        In hold mode, sets both open and close addresses to False.
+        In pulse mode with a stop address, sends a pulse to the stop address.
+        """
+        if self._hold_mode:
+            try:
+                await self.hass.async_add_executor_job(
+                    self._client.write_bool, self._address_open, False
+                )
+                await self.hass.async_add_executor_job(
+                    self._client.write_bool, self._address_close, False
+                )
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error("Cover '%s': stop write failed: %s", self._attr_name, exc)
+        elif self._address_stop:
+            try:
+                await self.hass.async_add_executor_job(
+                    self._client.pulse_bool, self._address_stop, self._pulse_duration
+                )
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error("Cover '%s': stop pulse failed: %s", self._attr_name, exc)
+
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover fully."""
-        _LOGGER.debug("Cover '%s' open – pulsing %s", self._attr_name, self._address_open)
+        _LOGGER.debug("Cover '%s' open – %s %s", self._attr_name,
+                       "holding" if self._hold_mode else "pulsing", self._address_open)
         self._cancel_travel()
 
-        try:
-            await self.hass.async_add_executor_job(
-                self._client.pulse_bool, self._address_open, self._pulse_duration
-            )
-        except Exception as exc:  # noqa: BLE001
-            _LOGGER.error("Cover '%s': open pulse failed: %s", self._attr_name, exc)
+        if not await self._start_movement(self._address_open):
             return
 
         if self._has_travel_times:
@@ -325,15 +407,11 @@ class VipaCover(CoverEntity):
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover fully."""
-        _LOGGER.debug("Cover '%s' close – pulsing %s", self._attr_name, self._address_close)
+        _LOGGER.debug("Cover '%s' close – %s %s", self._attr_name,
+                       "holding" if self._hold_mode else "pulsing", self._address_close)
         self._cancel_travel()
 
-        try:
-            await self.hass.async_add_executor_job(
-                self._client.pulse_bool, self._address_close, self._pulse_duration
-            )
-        except Exception as exc:  # noqa: BLE001
-            _LOGGER.error("Cover '%s': close pulse failed: %s", self._attr_name, exc)
+        if not await self._start_movement(self._address_close):
             return
 
         if self._has_travel_times:
@@ -354,15 +432,7 @@ class VipaCover(CoverEntity):
         """Stop the cover."""
         _LOGGER.debug("Cover '%s' stop", self._attr_name)
         self._cancel_travel()
-
-        if self._address_stop:
-            try:
-                await self.hass.async_add_executor_job(
-                    self._client.pulse_bool, self._address_stop, self._pulse_duration
-                )
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.error("Cover '%s': stop pulse failed: %s", self._attr_name, exc)
-
+        await self._stop_movement()
         self.async_write_ha_state()
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
@@ -393,22 +463,12 @@ class VipaCover(CoverEntity):
 
         if target > current:
             # Need to open
-            try:
-                await self.hass.async_add_executor_job(
-                    self._client.pulse_bool, self._address_open, self._pulse_duration
-                )
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.error("Cover '%s': open pulse failed: %s", self._attr_name, exc)
+            if not await self._start_movement(self._address_open):
                 return
             self._travel_direction = "open"
         else:
             # Need to close
-            try:
-                await self.hass.async_add_executor_job(
-                    self._client.pulse_bool, self._address_close, self._pulse_duration
-                )
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.error("Cover '%s': close pulse failed: %s", self._attr_name, exc)
+            if not await self._start_movement(self._address_close):
                 return
             self._travel_direction = "close"
 

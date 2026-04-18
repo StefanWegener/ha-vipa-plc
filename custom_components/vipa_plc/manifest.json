@@ -1,7 +1,7 @@
 {
   "domain": "vipa_plc",
   "name": "VIPA PLC",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "documentation": "https://github.com/StefanWegener/ha-vipa-plc",
   "issue_tracker": "https://github.com/StefanWegener/ha-vipa-plc/issues",
   "requirements": ["python-snap7==2.1.0"],

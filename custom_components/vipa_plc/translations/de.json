@@ -72,6 +72,7 @@
           "address_stop": "S7-Adresse STOPP (optional, z. B. DB12,X10.5)",
           "device_class": "Geräteklasse (optional)",
           "pulse_duration_seconds": "Impulsdauer (Sekunden)",
+          "hold_mode": "Haltemodus (Bit bleibt gesetzt während der Fahrt, kein Impuls)",
           "travel_time_down": "Fahrzeit runter (Sekunden, optional)",
           "travel_time_up": "Fahrzeit hoch (Sekunden, optional)"
         }
@@ -118,6 +119,7 @@
           "address_stop": "S7-Adresse STOPP (optional)",
           "device_class": "Geräteklasse (optional)",
           "pulse_duration_seconds": "Impulsdauer (Sekunden)",
+          "hold_mode": "Haltemodus (Bit bleibt gesetzt während der Fahrt, kein Impuls)",
           "travel_time_down": "Fahrzeit runter (Sekunden, optional)",
           "travel_time_up": "Fahrzeit hoch (Sekunden, optional)"
         }

@@ -31,6 +31,7 @@ from .const import (
     CONF_ENTITY_NAME,
     CONF_ENTITY_TYPE,
     CONF_HOST,
+    CONF_HOLD_MODE,
     CONF_INVERT,
     CONF_POLL_INTERVAL,
     CONF_PORT,
@@ -40,6 +41,7 @@ from .const import (
     CONF_TRAVEL_TIME_DOWN,
     CONF_TRAVEL_TIME_UP,
     DEFAULT_INVERT,
+    DEFAULT_HOLD_MODE,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_PORT,
     DEFAULT_PULSE_DURATION,
@@ -448,6 +450,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                     CONF_ADDRESS_STOP: stop_addr,
                     CONF_DEVICE_CLASS: user_input.get(CONF_DEVICE_CLASS) or None,
                     CONF_PULSE_DURATION: user_input.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION),
+                    CONF_HOLD_MODE: bool(user_input.get(CONF_HOLD_MODE, DEFAULT_HOLD_MODE)),
                     CONF_TRAVEL_TIME_DOWN: user_input.get(CONF_TRAVEL_TIME_DOWN) or None,
                     CONF_TRAVEL_TIME_UP: user_input.get(CONF_TRAVEL_TIME_UP) or None,
                 }
@@ -462,6 +465,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ADDRESS_STOP): str,
                 vol.Optional(CONF_DEVICE_CLASS): vol.In(COVER_DEVICE_CLASSES),
                 vol.Optional(CONF_PULSE_DURATION): _PULSE_DURATION_VALIDATOR,
+                vol.Optional(CONF_HOLD_MODE, default=DEFAULT_HOLD_MODE): bool,
                 vol.Optional(CONF_TRAVEL_TIME_DOWN): _TRAVEL_TIME_VALIDATOR,
                 vol.Optional(CONF_TRAVEL_TIME_UP): _TRAVEL_TIME_VALIDATOR,
             }
@@ -839,6 +843,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                         CONF_ADDRESS_STOP: stop_addr,
                         CONF_DEVICE_CLASS: user_input.get(CONF_DEVICE_CLASS) or None,
                         CONF_PULSE_DURATION: user_input.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION),
+                        CONF_HOLD_MODE: bool(user_input.get(CONF_HOLD_MODE, DEFAULT_HOLD_MODE)),
                         CONF_TRAVEL_TIME_DOWN: user_input.get(CONF_TRAVEL_TIME_DOWN) or None,
                         CONF_TRAVEL_TIME_UP: user_input.get(CONF_TRAVEL_TIME_UP) or None,
                     }
@@ -853,6 +858,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ADDRESS_STOP): str,
                 vol.Optional(CONF_DEVICE_CLASS): vol.In(COVER_DEVICE_CLASSES),
                 vol.Optional(CONF_PULSE_DURATION): _PULSE_DURATION_VALIDATOR,
+                vol.Optional(CONF_HOLD_MODE, default=DEFAULT_HOLD_MODE): bool,
                 vol.Optional(CONF_TRAVEL_TIME_DOWN): _TRAVEL_TIME_VALIDATOR,
                 vol.Optional(CONF_TRAVEL_TIME_UP): _TRAVEL_TIME_VALIDATOR,
             }
@@ -868,6 +874,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
                     CONF_ADDRESS_STOP: entity.get(CONF_ADDRESS_STOP) or "",
                     CONF_DEVICE_CLASS: entity.get(CONF_DEVICE_CLASS) or "",
                     CONF_PULSE_DURATION: entity.get(CONF_PULSE_DURATION, DEFAULT_PULSE_DURATION),
+                    CONF_HOLD_MODE: entity.get(CONF_HOLD_MODE, DEFAULT_HOLD_MODE),
                     CONF_TRAVEL_TIME_DOWN: entity.get(CONF_TRAVEL_TIME_DOWN),
                     CONF_TRAVEL_TIME_UP: entity.get(CONF_TRAVEL_TIME_UP),
                 },

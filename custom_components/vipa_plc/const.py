@@ -39,7 +39,9 @@ CONF_INVERT = "invert"
 CONF_PULSE_DURATION = "pulse_duration_seconds"
 CONF_TRAVEL_TIME_DOWN = "travel_time_down"
 CONF_TRAVEL_TIME_UP = "travel_time_up"
+CONF_HOLD_MODE = "hold_mode"
 
 # Defaults for entities
 DEFAULT_PULSE_DURATION = 0.5
 DEFAULT_INVERT = False
+DEFAULT_HOLD_MODE = False
