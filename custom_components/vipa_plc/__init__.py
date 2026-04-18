@@ -45,6 +45,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entity_configs: list[dict[str, Any]] = list(options.get(CONF_ENTITIES, []))
 
+    _LOGGER.debug(
+        "Loading %d entities from options for entry %s",
+        len(entity_configs),
+        entry.entry_id,
+    )
+    for cfg in entity_configs:
+        _LOGGER.debug("  Entity: %s (type=%s)", cfg.get("entity_name"), cfg.get("entity_type"))
+
     coordinator = VipaPlcCoordinator(
         hass=hass,
         client=client,

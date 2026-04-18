@@ -208,12 +208,23 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
     """Handle options (entity management) for an existing PLC config entry."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self._entities: list[dict[str, Any]] = list(
-            config_entry.options.get(CONF_ENTITIES, [])
-        )
+        self._entities: list[dict[str, Any]] = []
         self._selected_entity_id: str | None = None
         # State for the CSV import flow
         self._import_result: CsvImportResult | None = None
+        self._initialized: bool = False
+
+    def _ensure_loaded(self) -> None:
+        """Load entity list from config_entry options (lazy, once)."""
+        if not self._initialized:
+            self._entities = list(
+                self.config_entry.options.get(CONF_ENTITIES, [])
+            )
+            self._initialized = True
+            _LOGGER.debug(
+                "OptionsFlow loaded %d entities from config_entry options",
+                len(self._entities),
+            )
 
     def _name_exists(self, name: str) -> bool:
         """Check if an entity with this name already exists."""
@@ -227,6 +238,7 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Show the options menu."""
+        self._ensure_loaded()
         return await self.async_step_menu()
 
     async def async_step_menu(
@@ -888,6 +900,11 @@ class VipaPlcOptionsFlow(config_entries.OptionsFlow):
 
     def _save_and_exit(self) -> FlowResult:
         """Persist entity list and close options flow."""
+        _LOGGER.debug(
+            "Saving %d entities to options: %s",
+            len(self._entities),
+            [e.get(CONF_ENTITY_NAME) for e in self._entities],
+        )
         return self.async_create_entry(
             title="",
             data={CONF_ENTITIES: self._entities},
