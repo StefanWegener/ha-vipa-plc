@@ -7,7 +7,7 @@ import uuid
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.config_entries import OptionsFlowWithReload
+from homeassistant.config_entries import OptionsFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
@@ -205,7 +205,7 @@ class VipaPlcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return VipaPlcOptionsFlow()
 
 
-class VipaPlcOptionsFlow(OptionsFlowWithReload):
+class VipaPlcOptionsFlow(OptionsFlow):
     """Handle options (entity management) for an existing PLC config entry."""
 
     def __init__(self) -> None:
